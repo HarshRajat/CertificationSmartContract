@@ -1,6 +1,7 @@
 pragma solidity >=0.5.0 <0.6.0;
 
 import "./installed_contracts/zeppelin/contracts/math/SafeMath.sol";
+import "./installed_contracts/zeppelin/contracts/math/SafeMath16.sol";
 import "./installed_contracts/zeppelin/contracts/ownership/Ownable.sol";
 
 /**
@@ -13,11 +14,12 @@ import "./installed_contracts/zeppelin/contracts/ownership/Ownable.sol";
 contract Certification is Ownable {
     // Using SafeMath Library 
     using SafeMath for uint;
+    using SafeMath16 for uint16;
     
     /* ***************
     * DEFINE ENUMS
     *************** */
-    enum assignmentInfo { Inactive, Pending, Completed, Cancelled } // for assignment information
+    enum assignmentStatus { Inactive, Pending, Completed, Cancelled } // for assignment information
     
     /* ***************
     * DEFINE CONSTANTS
@@ -41,7 +43,7 @@ contract Certification is Ownable {
     */
     struct Assignment {
         string link; //the github link of the assignment 
-        uint8 status; // for the assignment information
+        assignmentStatus status; // for the assignment information
     }
     
     /*  Certification of Students can be handled in a struct, proposed solution:
@@ -52,7 +54,7 @@ contract Certification is Ownable {
     - lastName - using bytes32 to save space, handles 32 characters
     - commendation - using bytes32 to save space, handles 32 characters
     - grade - using uint8 since grade is from 1 to 5, max range 256
-    - assigmentIndex - using uint16 to handle it, max range 65536 | IMP: 0 is always reserved for Final Project
+    - assignmentIndex - using uint16 to handle it, max range 65536 | IMP: 0 is always reserved for Final Project
     - isRemoved - determines if the student has been deemed removed by the admins 
     - email - is used to reverse map for a student and to display email as well
     - assigments - is a mapping of uint16 to struct Assignment
@@ -63,7 +65,7 @@ contract Certification is Ownable {
         bytes32 commendation;
         
         uint8 grade;
-        uint16 assigmentIndex;
+        uint16 assignmentIndex;
         bool active;
         
         string email;
@@ -90,7 +92,7 @@ contract Certification is Ownable {
     modifier onlyAdmins() {
         require(
             admins[msg.sender].authorized,
-            "Only Admins allowed."
+            "Only Admins allowed"
             );
         _;
     }
@@ -99,7 +101,7 @@ contract Certification is Ownable {
     modifier onlyNonOwnerAdmins(address _addr) {
         require(
             admins[_addr].authorized && owner() != _addr,
-            "Only Non-Owner Admin allower."
+            "Only Non-Owner Admin allower"
             );
         _;
     }
@@ -154,6 +156,16 @@ contract Certification is Ownable {
         super._transferOwnership(newOwner);
     }
     
+    // Remove Owner from Admin as well | Overriding Ownable.sol
+    function renounceOwnership() public onlyOwner {
+        // Remove Admin
+        _removeAdmin(owner());
+        
+        // Call parent
+        super.renounceOwnership();
+        
+    }
+    
     // 2. ADMIN RELATED FUNCTIONS
     // To Add Administrator
     function addAdmin(address _addr) onlyOwner onlyPermissibleAdminLimit public {
@@ -189,7 +201,7 @@ contract Certification is Ownable {
         // check if the admin index is greater than 0
         require(
                 adminIndex > 0,
-                "Requires atleast 1 Admin."
+                "Requires atleast 1 Admin"
             );
         
         // a bit tricky, swap and delete to maintain mapping 
@@ -239,7 +251,7 @@ contract Certification is Ownable {
                 _lastName,
                 _commendation,
                 _grade,
-                0,                  // assigmentIndex always starts with 0
+                0,                  // assignmentIndex always starts with 0
                 true,              // active defaults to true          
                 _email
             );
@@ -301,5 +313,127 @@ contract Certification is Ownable {
     }
     
     // 4. ASSIGNMENT RELATED FUNCTIONS
+    // to add a new assignment
+    function addAssignment(
+        string calldata _studentEmail,
+        string calldata _link,
+        assignmentStatus _status,
+        bool _isFinalProject
+    ) external onlyAdmins onlyValidStudents(_studentEmail) {
+        // get the student
+        Student storage stud = students[studentsReverseMapping[_studentEmail]];
+        
+        // get the proper assignment ID 
+        uint16 assignmentID = _calcAndFetchAssignmentIndex(stud, _isFinalProject);
+        
+        // get the Assignment
+        Assignment storage assign = stud.assignments[assignmentID];
+        
+        // update it
+        assign.link = _link;
+        assign.status = _status;
+    }
     
+    // To update assignment status
+    function updateAssignmentStatus(
+        string calldata _studentEmail,
+        assignmentStatus _status,
+        bool _isFinalProject
+    ) external onlyAdmins onlyValidStudents(_studentEmail) {
+        // get the student
+        Student storage stud = students[studentsReverseMapping[_studentEmail]];
+        
+        // get the proper assignment ID 
+        uint16 assignmentID = _calcAndFetchAssignmentIndex(stud, _isFinalProject);
+        
+        // get the Assignment
+        Assignment storage assign = stud.assignments[assignmentID];
+        
+        // update it
+        assign.status = _status;
+    }
+    
+    // Private helper function to get assignment struct
+    function _calcAndFetchAssignmentIndex(
+        Student storage stud,
+        bool _isFinalProject
+    ) private
+    returns (uint16 assignmentID) {
+        if (!_isFinalProject) {
+            // add to assignmentIndex and assign that as assignmentID
+            stud.assignmentIndex = stud.assignmentIndex.add(1);
+            assignmentID = stud.assignmentIndex;
+        }
+    }
+    
+    // Get Assignment Info
+    function getAssignmentInfo(
+        string calldata _studentEmail,
+        uint16 _assignmentID
+    ) external view onlyValidStudents(_studentEmail)
+    returns (
+       string memory link,
+       assignmentStatus status
+    ) {
+        // get the student
+        Student storage stud = students[studentsReverseMapping[_studentEmail]];
+        
+        // check assignment index requirement
+        require(
+            _assignmentID <= stud.assignmentIndex && stud.assignmentIndex >= 0,
+            "Invalid Assignment ID"
+        );
+        
+        // get the Assignment
+        Assignment storage assign = stud.assignments[_assignmentID];
+        
+        link = assign.link;
+        status = assign.status;
+    }
+    
+    // 5. STRING / BYTE CONVERSION
+    /**
+     * @dev Helper Function to convert string to bytes32 format
+     * @param _source is the string which needs to be converted
+     * @return result is the bytes32 representation of that string
+     */
+    function stringToBytes32(string memory _source) 
+    public pure 
+    returns (bytes32 result) {
+        bytes memory tempEmptyStringTest = bytes(_source);
+        string memory tempSource = _source;
+        
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
+    
+        assembly {
+            result := mload(add(tempSource, 32))
+        }
+    }
+    
+    /**
+     * @dev Helper Function to convert bytes32 to string format
+     * @param _x is the bytes32 format which needs to be converted
+     * @return result is the string representation of that bytes32 string
+     */
+    function bytes32ToString(bytes32 _x) 
+    public pure 
+    returns (string memory result) {
+        bytes memory bytesString = new bytes(32);
+        uint charCount = 0;
+        for (uint j = 0; j < 32; j++) {
+            byte char = byte(bytes32(uint(_x) * 2 ** (8 * j)));
+            if (char != 0) {
+                bytesString[charCount] = char;
+                charCount++;
+            }
+        }
+        bytes memory bytesStringTrimmed = new bytes(charCount);
+        for (uint j = 0; j < charCount; j++) {
+            bytesStringTrimmed[j] = bytesString[j];
+        }
+        
+        result = string(bytesStringTrimmed);
+    }
 }
