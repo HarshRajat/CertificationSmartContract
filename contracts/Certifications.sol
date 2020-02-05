@@ -103,7 +103,7 @@ contract Certification is Ownable {
     event StudentEmailUpdated(string oldEmail, string newEmail);
     
     // Assignments Related
-    event AssignmentAdded(string indexed email, string link, assignmentStatus status, uint16 index, bool finalProject);
+    event AssignmentAdded(string indexed email, string link, assignmentStatus status, uint16 index);
     event AssignmentUpdated(string indexed email, uint16 index, assignmentStatus status);
 
     
@@ -383,7 +383,7 @@ contract Certification is Ownable {
         assign.status = _status;
         
         // Emit event
-        emit AssignmentAdded(_studentEmail, _link, _status, stud.assignmentIndex, _isFinalProject);
+        emit AssignmentAdded(_studentEmail, _link, _status, stud.assignmentIndex);
     }
     
     // To update assignment status
