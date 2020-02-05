@@ -20,6 +20,7 @@ contract Certification is Ownable {
     * DEFINE ENUMS
     *************** */
     enum assignmentStatus { Inactive, Pending, Completed, Cancelled } // for assignment information
+    enum grades { Good, Great, Outstanding, Epic, Legendary }
     
     /* ***************
     * DEFINE CONSTANTS
@@ -64,7 +65,7 @@ contract Certification is Ownable {
         bytes32 lastName;
         bytes32 commendation;
         
-        uint8 grade;
+        grades grade;
         uint16 assignmentIndex;
         bool active;
         
@@ -84,6 +85,27 @@ contract Certification is Ownable {
     mapping (uint => Student) public students;
     mapping (string => uint) public studentsReverseMapping;
     uint public studentIndex;
+    
+    /* ***************
+    * DEFINE EVENTS
+    *************** */
+    // Admins Related
+    event AdminAdded(address adminAddr, uint adminIndex); // Admin Added 
+    event AdminRemoved(address adminAddr, uint adminIndex); // Admin Removed 
+    event AdminLimitChanged(uint newLimit); // Max Admin Limit Changed
+    
+    // Students Related
+    event StudentAddded(string email, bytes32 firstName, bytes32 lastName, bytes32 commendation, grades grade);
+    event StudentRemoved(string email);
+    event StudentNameUpdated(string email, bytes32 firstName, bytes32 lastName);
+    event StudentCommendationUpdated(string email, bytes32 commendation);
+    event StudentGradeUpdated(string email, grades grade);
+    event StudentEmailUpdated(string oldEmail, string newEmail);
+    
+    // Assignments Related
+    event AssignmentAdded(string indexed email, string link, assignmentStatus status, uint16 index, bool finalProject);
+    event AssignmentUpdated(string indexed email, uint16 index, assignmentStatus status);
+
     
     /* ***************
     * DEFINE MODIFIERS
@@ -188,6 +210,9 @@ contract Certification is Ownable {
             
             // Increase admin index
             adminIndex = adminIndex.add(1);
+            
+            // Emit event
+            emit AdminAdded(_addr, adminIndex);
         }
     }
     
@@ -223,6 +248,9 @@ contract Certification is Ownable {
             delete(admins[_addr]);
             delete(adminsReverseMapping[adminIndex]);
             adminIndex = adminIndex.sub(1);
+            
+            // Emit event
+            emit AdminRemoved(_addr, adminIndex);
         }
     }
     
@@ -233,6 +261,9 @@ contract Certification is Ownable {
         );
         
         maxAdmins = _newLimit;
+        
+        // Emit event
+        emit AdminLimitChanged(maxAdmins);
     }
     
     // 3. STUDENTS RELATED FUNCTIONS
@@ -241,7 +272,7 @@ contract Certification is Ownable {
         bytes32 _firstName,
         bytes32 _lastName,
         bytes32 _commendation,
-        uint8 _grade,
+        grades _grade,
         string calldata _email
     )
     external onlyAdmins onlyNonExistentStudents(_email) {
@@ -258,12 +289,18 @@ contract Certification is Ownable {
         
         // Reverse map for look up based on email
         studentsReverseMapping[_email] = studentIndex;
+        
+        // Emit event
+        emit StudentAddded(_email, _firstName, _lastName, _commendation, _grade);
     }
     
     // To Remove Student
     function removeStudent (string calldata _email) external onlyAdmins onlyValidStudents(_email) {
         // update active status
         students[studentsReverseMapping[_email]].active = false;
+        
+        // Emit event
+        emit StudentRemoved(_email);
     }
     
     // To Change Student Name
@@ -276,6 +313,9 @@ contract Certification is Ownable {
         // Update Name
         students[studentsReverseMapping[_email]].firstName = _firstName; 
         students[studentsReverseMapping[_email]].lastName = _lastName; 
+        
+        // Emit event 
+        emit StudentNameUpdated(_email, _firstName, _lastName);
     }
     
     // To Change Student commendation
@@ -286,16 +326,22 @@ contract Certification is Ownable {
     external onlyAdmins onlyValidStudents(_email) {
         // Update commendation
         students[studentsReverseMapping[_email]].commendation = _commendation; 
+        
+        // Emit event
+        emit StudentCommendationUpdated(_email, _commendation);
     }
     
     // To Change Student Grade 
-    function changeStudentName(
-        uint8 _grade,
+    function changeStudentGrade(
+        grades _grade,
         string calldata _email   
     )
     external onlyAdmins onlyValidStudents(_email) {
         // Update Grade 
         students[studentsReverseMapping[_email]].grade = _grade; 
+        
+        // Emit event
+        emit StudentGradeUpdated(_email, _grade);
     }
     
     // To Change Student Email
@@ -310,6 +356,9 @@ contract Certification is Ownable {
         
         // delete old email
         delete(studentsReverseMapping[_oldEmail]);
+        
+        // Emit event
+        emit StudentEmailUpdated(_oldEmail, _newEmail);
     }
     
     // 4. ASSIGNMENT RELATED FUNCTIONS
@@ -332,6 +381,9 @@ contract Certification is Ownable {
         // update it
         assign.link = _link;
         assign.status = _status;
+        
+        // Emit event
+        emit AssignmentAdded(_studentEmail, _link, _status, stud.assignmentIndex, _isFinalProject);
     }
     
     // To update assignment status
@@ -351,6 +403,9 @@ contract Certification is Ownable {
         
         // update it
         assign.status = _status;
+        
+        // Emit event
+        emit AssignmentUpdated(_studentEmail, stud.assignmentIndex, _status);
     }
     
     // Private helper function to get assignment struct
