@@ -19,8 +19,8 @@ contract Certification is Ownable {
     /* ***************
     * DEFINE ENUMS
     *************** */
+    enum grades { Good, Great, Outstanding, Epic, Legendary } // for grades
     enum assignmentStatus { Inactive, Pending, Completed, Cancelled } // for assignment information
-    enum grades { Good, Great, Outstanding, Epic, Legendary }
     
     /* ***************
     * DEFINE CONSTANTS
