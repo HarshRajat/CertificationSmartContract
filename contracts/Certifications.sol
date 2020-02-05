@@ -257,7 +257,7 @@ contract Certification is Ownable {
     // To Change Administrator Limit
     function changeAdminLimit(uint _newLimit) external {
         require(
-            _newLimit >= 1, "Limit >= 1 required"  
+            _newLimit >= 1 && _newLimit > adminIndex, "Limit Mismatch"  
         );
         
         maxAdmins = _newLimit;
@@ -290,12 +290,15 @@ contract Certification is Ownable {
         // Reverse map for look up based on email
         studentsReverseMapping[_email] = studentIndex;
         
+        // Increment the student index
+        studentIndex = studentIndex.add(1);
+        
         // Emit event
         emit StudentAdded(_email, _firstName, _lastName, _commendation, _grade);
     }
     
     // To Remove Student
-    function removeStudent (string calldata _email) external onlyAdmins onlyValidStudents(_email) {
+    function removeStudent(string calldata _email) external onlyAdmins onlyValidStudents(_email) {
         // update active status
         students[studentsReverseMapping[_email]].active = false;
         
