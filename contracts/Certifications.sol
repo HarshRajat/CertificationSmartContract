@@ -54,9 +54,9 @@ contract Certification is Ownable {
     - firstName - using bytes32 to save space, handles 32 characters 
     - lastName - using bytes32 to save space, handles 32 characters
     - commendation - using bytes32 to save space, handles 32 characters
-    - grade - using uint8 since grade is from 1 to 5, max range 256
+    - grade - using grades enum since grade is from 1 to 5, max range 256
     - assignmentIndex - using uint16 to handle it, max range 65536 | IMP: 0 is always reserved for Final Project
-    - isRemoved - determines if the student has been deemed removed by the admins 
+    - active - determines if the student has been deemed active or inactive by the admins 
     - email - is used to reverse map for a student and to display email as well
     - assigments - is a mapping of uint16 to struct Assignment
     */
@@ -95,7 +95,7 @@ contract Certification is Ownable {
     event AdminLimitChanged(uint newLimit); // Max Admin Limit Changed
     
     // Students Related
-    event StudentAddded(string email, bytes32 firstName, bytes32 lastName, bytes32 commendation, grades grade);
+    event StudentAdded(string email, bytes32 firstName, bytes32 lastName, bytes32 commendation, grades grade);
     event StudentRemoved(string email);
     event StudentNameUpdated(string email, bytes32 firstName, bytes32 lastName);
     event StudentCommendationUpdated(string email, bytes32 commendation);
@@ -291,7 +291,7 @@ contract Certification is Ownable {
         studentsReverseMapping[_email] = studentIndex;
         
         // Emit event
-        emit StudentAddded(_email, _firstName, _lastName, _commendation, _grade);
+        emit StudentAdded(_email, _firstName, _lastName, _commendation, _grade);
     }
     
     // To Remove Student
